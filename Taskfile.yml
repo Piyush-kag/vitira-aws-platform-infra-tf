@@ -1,0 +1,106 @@
+version: '3'
+
+# -------------------------------------------------------------------
+# Global variables
+# -------------------------------------------------------------------
+vars:
+  # Default environment (can be overridden: ENV=prod)
+  ENV: '{{.ENV | default "dev"}}'
+
+  # Terraform root directory
+  TF_DIR: '.'
+
+  # Terraform variable file per environment
+  TFVARS: 'envs/{{.ENV}}/terraform.tfvars'
+
+# -------------------------------------------------------------------
+# Global settings
+# -------------------------------------------------------------------
+silent: false
+
+# -------------------------------------------------------------------
+# Tasks
+# -------------------------------------------------------------------
+tasks:
+
+  # ---------------------------------------------------------------
+  # Terraform basics
+  # ---------------------------------------------------------------
+
+  init:
+    desc: Initialize Terraform (download providers, set up state)
+    dir: '{{.TF_DIR}}'
+    cmds:
+      - terraform init -upgrade
+
+  validate:
+    desc: Validate Terraform configuration
+    dir: '{{.TF_DIR}}'
+    cmds:
+      - terraform validate
+
+  fmt:
+    desc: Format Terraform files recursively
+    dir: '{{.TF_DIR}}'
+    cmds:
+      - terraform fmt -recursive
+
+  # ---------------------------------------------------------------
+  # Planning & applying
+  # ---------------------------------------------------------------
+
+  plan:
+    desc: Terraform plan for ENV={{.ENV}}
+    dir: '{{.TF_DIR}}'
+    requires:
+      vars: [TFVARS]
+    cmds:
+      - |
+        echo "Planning infrastructure for environment: {{.ENV}}"
+        terraform plan -var-file={{.TFVARS}}
+
+  apply:
+    desc: Terraform apply for ENV={{.ENV}}
+    dir: '{{.TF_DIR}}'
+    requires:
+      vars: [TFVARS]
+    cmds:
+      - |
+        echo "Applying infrastructure for environment: {{.ENV}}"
+        terraform apply -var-file={{.TFVARS}}
+
+  destroy:
+    desc: Terraform destroy for ENV={{.ENV}}
+    dir: '{{.TF_DIR}}'
+    requires:
+      vars: [TFVARS]
+    cmds:
+      - |
+        echo "Destroying infrastructure for environment: {{.ENV}}"
+        terraform destroy -var-file={{.TFVARS}}
+
+  # ---------------------------------------------------------------
+  # High-level convenience tasks
+  # ---------------------------------------------------------------
+
+  platform:plan:
+    desc: Plan the full platform (current state = VPC only)
+    deps:
+      - init
+      - validate
+    cmds:
+      - task: plan
+
+  platform:apply:
+    desc: Apply the full platform (current state = VPC only)
+    deps:
+      - init
+      - validate
+    cmds:
+      - task: apply
+
+  platform:destroy:
+    desc: Destroy the full platform (USE WITH CARE)
+    deps:
+      - init
+      - task: destroy
